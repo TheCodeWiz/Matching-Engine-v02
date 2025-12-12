@@ -1,3 +1,330 @@
+// #include <iostream>
+// #include <vector>
+// #include <memory>
+// #include <thread>
+// #include <chrono>
+// #include <conio.h>
+// #include <algorithm>
+// #include <iomanip>
+// #include <sstream>
+// #include <windows.h>
+// #include <map>
+// #include "OrderBook.hpp"
+// #include "MockTrader.hpp"
+// #include "Logger.hpp"
+// #include "MarketDisplay.hpp"
+// #include "Instrument.hpp"
+
+// class TradingApplication {
+// public:
+//     TradingApplication()
+//         : logger_("trading_log.txt")
+//         , userTradeCount_(0)
+//     {
+//         // Create order books for each instrument
+//         for (const auto& instrument : InstrumentManager::getInstance().getInstruments()) {
+//             orderBooks_[instrument.instrumentId] = std::make_shared<OrderBook>();
+//             marketDisplays_[instrument.instrumentId] = std::make_shared<MarketDisplay>(orderBooks_[instrument.instrumentId]);
+//         }
+        
+//         currentInstrumentId_ = 1; // Default to first instrument
+//     }
+
+//     void start() {
+//         // Start mock traders for each instrument
+//         std::cout << "Starting mock traders..." << std::endl;
+//         for (const auto& [instrumentId, orderBook] : orderBooks_) {
+//             for (int i = 0; i < 1000; ++i) { // Reduced number of traders per instrument
+//                 auto trader = std::make_shared<MockTrader>(
+//                     orderBook,
+//                     "MOCK_" + std::to_string(instrumentId) + "_" + std::to_string(i),
+//                     instrumentId
+//                 );
+//                 mockTraders_.push_back(trader);
+//                 trader->start();
+//             }
+//         }
+
+//         // Start market data display thread
+//         displayThread_ = std::thread(&TradingApplication::displayMarketData, this);
+
+//         // Main trading loop
+//         running_ = true;
+//         while (running_) {
+//             if (_kbhit()) {
+//                 char choice = _getch();
+//                 switch (choice) {
+//                     case '1':
+//                         handleBuyOrder();
+//                         break;
+//                     case '2':
+//                         handleSellOrder();
+//                         break;
+//                     case '3':
+//                         viewUserOrders();
+//                         break;
+//                     case '4':
+//                         queryOrderStatus();
+//                         break;
+//                     case '5':
+//                         running_ = false;
+//                         break;
+//                 }
+//             }
+//             std::this_thread::sleep_for(std::chrono::milliseconds(100));
+//         }
+
+//         // Cleanup
+//         for (auto& trader : mockTraders_) {
+//             trader->stop();
+//         }
+        
+//         if (displayThread_.joinable()) {
+//             displayThread_.join();
+//         }
+//     }
+
+// private:
+//     void selectInstrument() {
+//         system("cls");
+//         std::cout << "\n=== Select Instrument ===\n";
+//         const auto& instruments = InstrumentManager::getInstance().getInstruments();
+//         for (const auto& instrument : instruments) {
+//             std::cout << instrument.instrumentId << ". " << instrument.name 
+//                      << " (" << instrument.symbol << ")\n";
+//         }
+        
+//         int selectedId;
+//         do {
+//             std::cout << "\nEnter instrument number: ";
+//             std::cin >> selectedId;
+//         } while (selectedId < 1 || selectedId > instruments.size());
+        
+//         currentInstrumentId_ = selectedId;
+//         const auto* instrument = InstrumentManager::getInstance().getInstrumentById(selectedId);
+//         addToHistory("Selected instrument: " + instrument->name + " (" + instrument->symbol + ")");
+//     }
+
+//     void handleBuyOrder() {
+//         addToHistory("=== Placing Buy Order ===");
+//         selectInstrument();
+//         addToHistory("Enter order type (1 for Market, 2 for Limit):");
+//         int type;
+//         std::cin >> type;
+
+//         addToHistory("Enter quantity:");
+//         size_t quantity;
+//         std::cin >> quantity;
+
+//         double price = 0.0;
+//         if (type == 2) {
+//             addToHistory("Enter price:");
+//             std::cin >> price;
+//         }
+
+//         auto order = std::make_shared<Order>(
+//             type == 1 ? OrderType::MARKET : OrderType::LIMIT,
+//             OrderSide::BUY,
+//             price,
+//             quantity,
+//             TimeInForce::GTC,
+//             "USER_" + std::to_string(++userTradeCount_),
+//             currentInstrumentId_
+//         );
+
+//         orderBooks_[currentInstrumentId_]->addOrder(order);
+//         logger_.logOrder(*order);
+//         userOrders_.push_back(order);
+
+//         std::stringstream ss;
+//         ss << "BUY Order placed - ID: " << order->getOrderId() 
+//            << " | Type: " << (type == 1 ? "MARKET" : "LIMIT")
+//            << " | Quantity: " << quantity;
+//         if (type == 2) {
+//             ss << " | Price: $" << std::fixed << std::setprecision(2) << price;
+//         }
+//         addToHistory(ss.str());
+//     }
+
+//     void handleSellOrder() {
+//         addToHistory("=== Placing Sell Order ===");
+//         selectInstrument();
+//         addToHistory("Enter order type (1 for Market, 2 for Limit):");
+//         int type;
+//         std::cin >> type;
+
+//         addToHistory("Enter quantity:");
+//         size_t quantity;
+//         std::cin >> quantity;
+
+//         double price = 0.0;
+//         if (type == 2) {
+//             addToHistory("Enter price:");
+//             std::cin >> price;
+//         }
+
+//         auto order = std::make_shared<Order>(
+//             type == 1 ? OrderType::MARKET : OrderType::LIMIT,
+//             OrderSide::SELL,
+//             price,
+//             quantity,
+//             TimeInForce::GTC,
+//             "USER_" + std::to_string(++userTradeCount_),
+//             currentInstrumentId_
+//         );
+
+//         orderBooks_[currentInstrumentId_]->addOrder(order);
+//         logger_.logOrder(*order);
+//         userOrders_.push_back(order);
+
+//         std::stringstream ss;
+//         ss << "SELL Order placed - ID: " << order->getOrderId() 
+//            << " | Type: " << (type == 1 ? "MARKET" : "LIMIT")
+//            << " | Quantity: " << quantity;
+//         if (type == 2) {
+//             ss << " | Price: $" << std::fixed << std::setprecision(2) << price;
+//         }
+//         addToHistory(ss.str());
+//     }
+
+//     void viewUserOrders() {
+//         addToHistory("=== Your Orders ===");
+//         if (userOrders_.empty()) {
+//             addToHistory("No orders found.");
+//             return;
+//         }
+
+//         for (const auto& order : userOrders_) {
+//             std::stringstream ss;
+//             ss << "ID: " << order->getOrderId() 
+//                << " | Type: " << (order->getType() == OrderType::LIMIT ? "LIMIT" : "MARKET")
+//                << " | Side: " << (order->getSide() == OrderSide::BUY ? "BUY" : "SELL")
+//                << " | Price: $" << std::fixed << std::setprecision(2) << order->getPrice()
+//                << " | Qty: " << order->getQuantity()
+//                << " | Remaining: " << order->getRemainingQuantity()
+//                << " | Status: ";
+            
+//             switch (order->getStatus()) {
+//                 case OrderStatus::NEW: ss << "NEW"; break;
+//                 case OrderStatus::PARTIALLY_FILLED: ss << "PARTIAL"; break;
+//                 case OrderStatus::FILLED: ss << "FILLED"; break;
+//                 case OrderStatus::CANCELLED: ss << "CANCELLED"; break;
+//                 case OrderStatus::EXPIRED: ss << "EXPIRED"; break;
+//             }
+//             addToHistory(ss.str());
+//         }
+//     }
+
+//     void queryOrderStatus() {
+//         addToHistory("=== Query Order Status ===");
+//         addToHistory("Enter Order ID:");
+//         std::string orderId;
+//         std::cin >> orderId;
+
+//         auto it = std::find_if(userOrders_.begin(), userOrders_.end(),
+//             [&orderId](const std::shared_ptr<Order>& order) {
+//                 return order->getOrderId() == orderId;
+//             });
+
+//         if (it != userOrders_.end()) {
+//             auto order = *it;
+//             std::stringstream ss;
+//             ss << "Order Details - ID: " << orderId << "\n"
+//                << "Type: " << (order->getType() == OrderType::LIMIT ? "LIMIT" : "MARKET") << "\n"
+//                << "Side: " << (order->getSide() == OrderSide::BUY ? "BUY" : "SELL") << "\n"
+//                << "Price: $" << std::fixed << std::setprecision(2) << order->getPrice() << "\n"
+//                << "Original Quantity: " << order->getQuantity() << "\n"
+//                << "Remaining Quantity: " << order->getRemainingQuantity() << "\n"
+//                << "Status: ";
+            
+//             switch (order->getStatus()) {
+//                 case OrderStatus::NEW: ss << "NEW"; break;
+//                 case OrderStatus::PARTIALLY_FILLED: ss << "PARTIALLY FILLED"; break;
+//                 case OrderStatus::FILLED: ss << "FILLED"; break;
+//                 case OrderStatus::CANCELLED: ss << "CANCELLED"; break;
+//                 case OrderStatus::EXPIRED: ss << "EXPIRED"; break;
+//             }
+//             addToHistory(ss.str());
+//         } else {
+//             addToHistory("Order not found: " + orderId);
+//         }
+//     }
+
+//     std::vector<std::string> messageHistory_;
+//     std::mutex historyMutex_;
+
+//     void addToHistory(const std::string& message) {
+//         std::lock_guard<std::mutex> lock(historyMutex_);
+//         messageHistory_.push_back(message);
+//         if (messageHistory_.size() > 10) {  // Keep last 10 messages
+//             messageHistory_.erase(messageHistory_.begin());
+//         }
+//     }
+
+//     void displayMarketData() {
+//         while (running_) {
+//             system("cls");
+//             const auto* currentInstrument = InstrumentManager::getInstance().getInstrumentById(currentInstrumentId_);
+//             auto currentOrderBook = orderBooks_[currentInstrumentId_];
+//             double bestBid = currentOrderBook->getBestBidPrice();
+//             double bestAsk = currentOrderBook->getBestAskPrice();
+            
+//             // Display message history
+//             std::cout << "\n=== Transaction History ===\n";
+//             {
+//                 std::lock_guard<std::mutex> lock(historyMutex_);
+//                 for (const auto& msg : messageHistory_) {
+//                     std::cout << msg << "\n";
+//                 }
+//             }
+            
+//             // Display market data
+//             std::cout << "\n=== Live Market Data ===\n";
+//             std::cout << "+------------------------------------------+\n";
+//             std::cout << "|               MARKET DATA                |\n";
+//             std::cout << "+------------------------------------------+\n";
+//             std::cout << "| Current Instrument: " << std::left << std::setw(20) << currentInstrument->name << "|\n";
+//             std::cout << "| Symbol: " << std::left << std::setw(31) << currentInstrument->symbol << "|\n";
+//             std::cout << "| Best Bid: $" << std::fixed << std::setprecision(2) << std::right << std::setw(7) << bestBid << std::setw(19) << "|\n";
+//             std::cout << "| Best Ask: $" << std::fixed << std::setprecision(2) << std::right << std::setw(7) << bestAsk << std::setw(19) << "|\n";
+//             std::cout << "+------------------------------------------+\n";
+            
+//             // Display menu
+//             std::cout << "\n+------------------+\n";
+//             std::cout << "|       MENU        |\n";
+//             std::cout << "+------------------+\n";
+//             std::cout << "| 1. Place Buy     |\n";
+//             std::cout << "| 2. Place Sell    |\n";
+//             std::cout << "| 3. View Orders   |\n";
+//             std::cout << "| 4. Query Order   |\n";
+//             std::cout << "| 5. Exit          |\n";
+//             std::cout << "+------------------+\n";
+
+//             std::this_thread::sleep_for(std::chrono::milliseconds(500));
+//         }
+//     }
+
+//     std::map<int, std::shared_ptr<OrderBook>> orderBooks_;
+//     std::map<int, std::shared_ptr<MarketDisplay>> marketDisplays_;
+//     Logger logger_;
+//     std::vector<std::shared_ptr<MockTrader>> mockTraders_;
+//     std::vector<std::shared_ptr<Order>> userOrders_;
+//     std::atomic<bool> running_{false};
+//     std::thread displayThread_;
+//     std::atomic<int> userTradeCount_;
+//     int currentInstrumentId_;
+// };
+
+// int main() {
+//     TradingApplication app;
+//     app.start();
+//     return 0;
+// }
+
+
+
+
+
 #include <iostream>
 #include <vector>
 #include <memory>
@@ -54,19 +381,19 @@ public:
             if (_kbhit()) {
                 char choice = _getch();
                 switch (choice) {
-                    case '1':
+                    case 'a':
                         handleBuyOrder();
                         break;
-                    case '2':
+                    case 'b':
                         handleSellOrder();
                         break;
-                    case '3':
+                    case 'c':
                         viewUserOrders();
                         break;
-                    case '4':
+                    case 'd':
                         queryOrderStatus();
                         break;
-                    case '5':
+                    case 'e':
                         running_ = false;
                         break;
                 }
@@ -293,11 +620,11 @@ private:
             std::cout << "\n+------------------+\n";
             std::cout << "|       MENU        |\n";
             std::cout << "+------------------+\n";
-            std::cout << "| 1. Place Buy     |\n";
-            std::cout << "| 2. Place Sell    |\n";
-            std::cout << "| 3. View Orders   |\n";
-            std::cout << "| 4. Query Order   |\n";
-            std::cout << "| 5. Exit          |\n";
+            std::cout << "| a. Place Buy     |\n";
+            std::cout << "| b. Place Sell    |\n";
+            std::cout << "| c. View Orders   |\n";
+            std::cout << "| d. Query Order   |\n";
+            std::cout << "| e. Exit          |\n";
             std::cout << "+------------------+\n";
 
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
